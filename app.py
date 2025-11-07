@@ -1,66 +1,58 @@
-
-import os
+import telebot
 from flask import Flask, request
-from telebot import TeleBot, types
 
-TOKEN = os.getenv("BOT_TOKEN", "YOUR_TOKEN_HERE")
-bot = TeleBot(TOKEN)
+# 🔹 ВСТАВЬ СВОЙ ТОКЕН СЮДА:
+TOKEN = "8057107808:AAH4hRcpWp2IKI_MSl1zEmDUsfeFWdk4QT8"
+
+# 🔹 ССЫЛКА НА ТВОЙ САЙТ НА RENDER:
+WEBHOOK_URL = f"https://masteroboev2-0.onrender.com/{TOKEN}"
+
+bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-ADMIN_PASSWORD = "iadmin"
-admin_verified = set()
+# ====== ОБРАБОТКА СООБЩЕНИЙ ======
+@bot.message_handler(commands=['start'])
+def start_message(message):
+    bot.reply_to(
+        message,
+        "Привет 👋 Я бот *Мастер Обоев!* 🎨\n"
+        "Здесь ты можешь получать красивые обои 📱.\n\n"
+        "👉 Напиши /vip чтобы узнать о VIP доступе.",
+        parse_mode="Markdown"
+    )
 
-@app.route('/' + TOKEN, methods=['POST'])
-def getMessage():
-    json_string = request.get_data().decode('utf-8')
-    update = types.Update.de_json(json_string)
+@bot.message_handler(commands=['vip'])
+def vip_info(message):
+    bot.reply_to(
+        message,
+        "💎 *VIP доступ* позволяет получать эксклюзивные обои!\n\n"
+        "💰 Стоимость:\n"
+        "• 23 руб/мес\n"
+        "• 1000 руб — навсегда 🔥",
+        parse_mode="Markdown"
+    )
+
+@bot.message_handler(content_types=['text'])
+def handle_text(message):
+    bot.reply_to(message, "Я тебя понял 😊 Используй команды: /start, /vip")
+
+# ====== FLASK ЧАСТЬ ======
+@app.route(f"/{TOKEN}", methods=['POST'])
+def webhook():
+    """Получение апдейтов от Telegram"""
+    json_str = request.get_data().decode('UTF-8')
+    update = telebot.types.Update.de_json(json_str)
     bot.process_new_updates([update])
     return '', 200
 
-@app.route('/')
-def webhook():
+@app.route('/', methods=['GET'])
+def index():
+    """Render проверяет доступность сайта — просто ответим."""
+    return '✅ Бот "Мастер Обоев" работает через Render!', 200
+
+# ====== ЗАПУСК ЛОКАЛЬНО (для тестов) ======
+if __name__ == '__main__':
     bot.remove_webhook()
-    bot.set_webhook(url=os.getenv("RENDER_EXTERNAL_URL") + '/' + TOKEN)
-    return 'Bot is running!', 200
-
-@bot.message_handler(commands=['start'])
-def start(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("🖼 Получить обои", "💎 VIP подписка")
-    bot.send_message(message.chat.id, "Добро пожаловать в *Мастер Обоев*!", parse_mode="Markdown", reply_markup=markup)
-
-@bot.message_handler(func=lambda m: m.text == "🖼 Получить обои")
-def send_wallpaper(message):
-    bot.send_message(message.chat.id, "Вот случайные обои 🌄 (в будущем тут будет выбор)")
-
-@bot.message_handler(func=lambda m: m.text == "💎 VIP подписка")
-def vip_info(message):
-    bot.send_message(message.chat.id, "💎 VIP доступ: 23₽/мес или 1000₽ навсегда. В разработке.")
-
-@bot.message_handler(commands=['admin'])
-def admin_login(message):
-    bot.send_message(message.chat.id, "Введите пароль администратора:")
-    bot.register_next_step_handler(message, verify_admin)
-
-def verify_admin(message):
-    if message.text == ADMIN_PASSWORD:
-        admin_verified.add(message.chat.id)
-        bot.send_message(message.chat.id, "✅ Пароль подтверждён! Введите /upload для загрузки обоев.")
-    else:
-        bot.send_message(message.chat.id, "❌ Неверный пароль.")
-
-@bot.message_handler(commands=['upload'])
-def upload(message):
-    if message.chat.id not in admin_verified:
-        bot.send_message(message.chat.id, "❌ Нет доступа. Введите /admin для входа.")
-        return
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("Для всех", "Только VIP")
-    bot.send_message(message.chat.id, "Кому выгружать обои?", reply_markup=markup)
-    bot.register_next_step_handler(message, choose_access)
-
-def choose_access(message):
-    bot.send_message(message.chat.id, f"📤 Загрузка обоев для: {message.text}")
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    bot.set_webhook(url=WEBHOOK_URL)
+    print(f"Webhook установлен: {WEBHOOK_URL}")
+    app.run(host='0.0.0.0', port=8080)
