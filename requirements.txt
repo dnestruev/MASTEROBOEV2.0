@@ -1,0 +1,5 @@
+
+flask==3.0.0
+pyTelegramBotAPI==4.15.0
+aiohttp==3.9.5
+gunicorn==21.2.0
